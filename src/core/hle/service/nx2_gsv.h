@@ -887,13 +887,30 @@ private:
         }
     }
 
-    // EDEN_NX2_SPARSE_LAZY=0 backs sparse regions whole, as before.
-    static bool LazySparseRegions() {
-        static const bool lazy = [] {
+        // Lazy sparse backing (build 47+) crashes some titles at launch. It stays on for titles known
+    // to run well with it (Mario Kart World) and defaults to off, backing sparse regions whole as
+    // before, for every other title. EDEN_NX2_SPARSE_LAZY=1 or =0 still forces it either way.
+    static constexpr u64 LazySparseTitles[] = {
+        0x0400C3F00006E000ULL, // Mario Kart World
+    };
+    bool LazySparseRegions() const {
+        static const int forced = [] {
             const char* value = std::getenv("EDEN_NX2_SPARSE_LAZY");
-            return value == nullptr || value[0] != '0';
+            if (value == nullptr || value[0] == '\0') {
+                return -1;
+            }
+            return value[0] != '0' ? 1 : 0;
         }();
-        return lazy;
+        if (forced >= 0) {
+            return forced == 1;
+        }
+        const u64 program_id = system.GetApplicationProcessProgramID();
+        for (const u64 title : LazySparseTitles) {
+            if (title == program_id) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static constexpr u32 SparseRegionFlag = 0x200; ///< Word 7 of 214 (0x60c arrays, 0xa0c pools)
